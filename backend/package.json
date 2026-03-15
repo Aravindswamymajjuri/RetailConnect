@@ -1,0 +1,27 @@
+{
+  "name": "retailconnect-backend",
+  "version": "1.0.0",
+  "description": "Real-time full-stack application connecting retail and wholesale shops",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "keywords": ["retail", "wholesale", "real-time"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.0.0",
+    "socket.io": "^4.5.4",
+    "dotenv": "^16.0.3",
+    "jsonwebtoken": "^9.0.0",
+    "bcryptjs": "^2.4.3",
+    "axios": "^1.3.0",
+    "cors": "^2.8.5",
+    "qrcode": "^1.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  }
+}
