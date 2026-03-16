@@ -1,9 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-// Set your Mapbox token here
-mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || 'your_mapbox_token_here';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 /**
  * LocationPickerMap Component
@@ -18,7 +15,6 @@ export const LocationPickerMap = ({ onLocationSelect, initialLocation = null, ti
   const mapInitializedRef = useRef(false);
   const [selectedLocation, setSelectedLocation] = useState(initialLocation || { latitude: 17.35, longitude: 78.65 });
   const [loading, setLoading] = useState(true);
-  const [locationError, setLocationError] = useState(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   // Get user's current location on component mount
@@ -32,18 +28,15 @@ export const LocationPickerMap = ({ onLocationSelect, initialLocation = null, ti
           };
           setSelectedLocation(userLocation);
           setLoading(false);
-          setLocationError(null);
         },
         (error) => {
           console.warn('Geolocation error:', error);
-          setLocationError('Using default location');
           setLoading(false);
           // Keep default location (Hyderabad)
         }
       );
     } else {
       setLoading(false);
-      setLocationError('Geolocation not supported');
     }
   }, []);
 
@@ -56,36 +49,34 @@ export const LocationPickerMap = ({ onLocationSelect, initialLocation = null, ti
         map.current.remove();
       }
 
-      map.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [selectedLocation.longitude, selectedLocation.latitude],
-        zoom: 13,
-        attributionControl: true
-      });
+      map.current = L.map(mapContainer.current).setView(
+        [selectedLocation.latitude, selectedLocation.longitude],
+        13
+      );
+
+      // Add tile layer (OpenStreetMap)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map.current);
 
       mapInitializedRef.current = true;
 
-      // Wait for map to load
-      map.current.on('load', () => {
-        if (!map.current) return;
+      // Add initial marker if location is provided
+      if (selectedLocation.latitude && selectedLocation.longitude) {
+        addMarker(selectedLocation.longitude, selectedLocation.latitude);
+      }
 
-        // Add initial marker if location is provided
-        if (selectedLocation.latitude && selectedLocation.longitude) {
-          addMarker(selectedLocation.longitude, selectedLocation.latitude);
-        }
-
-        // Add click handler to map
-        map.current.on('click', (e) => {
-          const { lng, lat } = e.lngLat;
-          const newLocation = { latitude: lat, longitude: lng };
-          setSelectedLocation(newLocation);
-          addMarker(lng, lat);
-        });
-
-        // Add navigation controls
-        map.current.addControl(new mapboxgl.NavigationControl());
+      // Add click handler to map
+      map.current.on('click', (e) => {
+        const { lat, lng } = e.latlng;
+        const newLocation = { latitude: lat, longitude: lng };
+        setSelectedLocation(newLocation);
+        addMarker(lng, lat);
       });
+
+      // Add zoom control
+      L.control.zoom().addTo(map.current);
 
       return () => {
         mapInitializedRef.current = false;
@@ -102,43 +93,45 @@ export const LocationPickerMap = ({ onLocationSelect, initialLocation = null, ti
       console.error('Error initializing map:', error);
       mapInitializedRef.current = false;
     }
-  }, [loading]);
+  }, [loading, selectedLocation.latitude, selectedLocation.longitude]);
 
   // Add or update marker on map
   const addMarker = (lng, lat) => {
     // Remove existing marker
     if (markerRef.current) {
-      markerRef.current.remove();
+      map.current.removeLayer(markerRef.current);
     }
 
-    // Create new marker
-    const el = document.createElement('div');
-    el.style.width = '40px';
-    el.style.height = '40px';
-    el.style.backgroundColor = '#dc2626';
-    el.style.border = '3px solid white';
-    el.style.borderRadius = '50%';
-    el.style.cursor = 'pointer';
-    el.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
-    el.style.display = 'flex';
-    el.style.alignItems = 'center';
-    el.style.justifyContent = 'center';
-    el.style.fontSize = '20px';
-    el.innerHTML = '📍';
+    // Create custom icon
+    const customIcon = L.divIcon({
+      html: `<div style="
+        width: 40px;
+        height: 40px;
+        background-color: #dc2626;
+        border: 3px solid white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        cursor: pointer;
+      ">📍</div>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 40],
+      popupAnchor: [0, -40],
+      className: 'custom-icon'
+    });
 
-    markerRef.current = new mapboxgl.Marker(el)
-      .setLngLat([lng, lat])
-      .setPopup(
-        new mapboxgl.Popup({ offset: 25 }).setHTML(`
-          <div class="p-2">
-            <p class="font-semibold">Shop Location</p>
-            <p class="text-sm text-gray-600">📍 ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
-          </div>
-        `)
-      )
+    markerRef.current = L.marker([lat, lng], { icon: customIcon })
+      .bindPopup(`
+        <div class="p-2">
+          <p class="font-semibold">Shop Location</p>
+          <p class="text-sm text-gray-600">📍 ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
+        </div>
+      `)
+      .openPopup()
       .addTo(map.current);
-
-    markerRef.current.togglePopup();
   };
 
   // Get current location
@@ -146,7 +139,11 @@ export const LocationPickerMap = ({ onLocationSelect, initialLocation = null, ti
     setIsGettingLocation(true);
     try {
       const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject);
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        });
       });
 
       const newLocation = {
@@ -157,16 +154,15 @@ export const LocationPickerMap = ({ onLocationSelect, initialLocation = null, ti
       setSelectedLocation(newLocation);
       addMarker(newLocation.longitude, newLocation.latitude);
 
-      // Center map on new location
+      // Center map on new location with Leaflet syntax
       if (map.current) {
-        map.current.flyTo({
-          center: [newLocation.longitude, newLocation.latitude],
-          zoom: 15,
-          duration: 1000
+        map.current.flyTo([newLocation.latitude, newLocation.longitude], 15, {
+          duration: 1
         });
       }
     } catch (error) {
-      alert('Could not get your current location. Please enable location services.');
+      console.error('Geolocation error:', error);
+      alert('Could not get your current location. Please enable location services in your browser settings.');
     } finally {
       setIsGettingLocation(false);
     }

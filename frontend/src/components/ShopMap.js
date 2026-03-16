@@ -1,9 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-// Set your Mapbox token here
-mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || 'your_mapbox_token_here';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 export const ShopMap = ({ shops = [], userLocation, onShopSelect, title = 'Nearby Shops' }) => {
   const mapContainer = useRef(null);
@@ -23,77 +20,51 @@ export const ShopMap = ({ shops = [], userLocation, onShopSelect, title = 'Nearb
       }
 
       // Create map
-      map.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [
-          userLocation?.longitude || 78.356,
-          userLocation?.latitude || 17.450
+      map.current = L.map(mapContainer.current).setView(
+        [
+          userLocation?.latitude || 17.450,
+          userLocation?.longitude || 78.356
         ],
-        zoom: 12,
-        attributionControl: true
-      });
+        12
+      );
+
+      // Add tile layer (OpenStreetMap)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map.current);
 
       mapInitializedRef.current = true;
 
-      // Wait for map to load before adding resources
-      map.current.on('load', () => {
-        if (!map.current) return;
+      // Add user location marker
+      if (userLocation) {
+        try {
+          const blueIcon = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI4IiBmaWxsPSIjMDA2NmZmIi8+PC9zdmc+',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+            popupAnchor: [0, -12]
+          });
 
-        // Add user location marker
-        if (userLocation) {
-          try {
-            new mapboxgl.Marker({ color: '#0066ff' })
-              .setLngLat([userLocation.longitude, userLocation.latitude])
-              .setPopup(new mapboxgl.Popup().setText('📍 Your Location'))
-              .addTo(map.current);
+          L.marker([userLocation.latitude, userLocation.longitude], { icon: blueIcon })
+            .bindPopup('📍 Your Location')
+            .addTo(map.current);
 
-            // Add 5km radius circle visualization
-            if (!map.current.getSource('radius-circle')) {
-              map.current.addSource('radius-circle', {
-                'type': 'geojson',
-                'data': {
-                  'type': 'Feature',
-                  'geometry': {
-                    'type': 'Point',
-                    'coordinates': [userLocation.longitude, userLocation.latitude]
-                  }
-                }
-              });
-
-              // Add circle layer (5km radius = ~0.045 degrees at equator)
-              map.current.addLayer({
-                'id': 'radius-circle-layer',
-                'type': 'circle',
-                'source': 'radius-circle',
-                'paint': {
-                  'circle-radius': {
-                    'type': 'exponential',
-                    'base': 2,
-                    'stops': [
-                      [0, 0],
-                      [20, 100]
-                    ]
-                  },
-                  'circle-color': '#3b82f6',
-                  'circle-opacity': 0.1,
-                  'circle-stroke-width': 2,
-                  'circle-stroke-color': '#3b82f6',
-                  'circle-stroke-opacity': 0.5
-                }
-              });
-            }
-          } catch (error) {
-            console.warn('Error adding user location marker:', error);
-          }
+          // Add 5km radius circle
+          L.circle([userLocation.latitude, userLocation.longitude], {
+            color: '#3b82f6',
+            fillColor: '#3b82f6',
+            fillOpacity: 0.1,
+            weight: 2,
+            radius: 5000 // 5km in meters
+          }).addTo(map.current);
+        } catch (error) {
+          console.warn('Error adding user location marker:', error);
         }
-      });
-
-      // Add navigation controls
-      if (map.current) {
-        map.current.addControl(new mapboxgl.NavigationControl());
-        map.current.addControl(new mapboxgl.FullscreenControl());
       }
+
+      // Add zoom control
+      L.control.zoom().addTo(map.current);
 
       // Clean up function
       return () => {
@@ -122,7 +93,7 @@ export const ShopMap = ({ shops = [], userLocation, onShopSelect, title = 'Nearb
       markersRef.current.forEach((markerObj) => {
         try {
           if (markerObj.marker) {
-            markerObj.marker.remove();
+            map.current.removeLayer(markerObj.marker);
           }
         } catch (error) {
           console.warn('Error removing marker:', error);
@@ -136,24 +107,30 @@ export const ShopMap = ({ shops = [], userLocation, onShopSelect, title = 'Nearb
           if (!shop.location || !shop.location.coordinates) return;
 
           const [lon, lat] = shop.location.coordinates;
+          const isSelected = selectedShop?._id === shop._id;
           
-          // Create a custom HTML marker element (red dot for shops)
-          const el = document.createElement('div');
-          el.className = 'shop-marker';
-          el.style.width = '32px';
-          el.style.height = '32px';
-          el.style.backgroundColor = selectedShop?._id === shop._id ? '#dc2626' : '#ef4444';
-          el.style.border = selectedShop?._id === shop._id ? '3px solid #991b1b' : '2px solid white';
-          el.style.borderRadius = '50%';
-          el.style.cursor = 'pointer';
-          el.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
-          el.style.display = 'flex';
-          el.style.alignItems = 'center';
-          el.style.justifyContent = 'center';
-          el.style.fontSize = '18px';
-          el.innerHTML = '🏪';
+          // Create custom icon for shop
+          const customIcon = L.divIcon({
+            html: `<div style="
+              width: ${isSelected ? '40px' : '32px'};
+              height: ${isSelected ? '40px' : '32px'};
+              background-color: ${isSelected ? '#dc2626' : '#ef4444'};
+              border: ${isSelected ? '3px solid #991b1b' : '2px solid white'};
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 18px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+              cursor: pointer;
+            ">🏪</div>`,
+            iconSize: [isSelected ? 40 : 32, isSelected ? 40 : 32],
+            iconAnchor: [isSelected ? 20 : 16, isSelected ? 40 : 32],
+            popupAnchor: [0, isSelected ? -40 : -32],
+            className: 'shop-marker'
+          });
 
-          const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+          const popupContent = `
             <div class="p-3 max-w-xs">
               <h3 class="font-bold text-base">${shop.name}</h3>
               <p class="text-sm text-gray-600">${shop.address}</p>
@@ -161,36 +138,22 @@ export const ShopMap = ({ shops = [], userLocation, onShopSelect, title = 'Nearb
               <p class="text-sm text-gray-600">⭐ Rating: ${shop.averageRating ? shop.averageRating.toFixed(1) : 'N/A'} / 5</p>
               ${shop.owner ? `<p class="text-sm text-gray-600 mt-1">👤 Owner: ${shop.owner.name}</p>` : ''}
             </div>
-          `);
+          `;
 
-          const marker = new mapboxgl.Marker(el)
-            .setLngLat([lon, lat])
-            .setPopup(popup)
+          const marker = L.marker([lat, lon], { icon: customIcon })
+            .bindPopup(popupContent)
             .addTo(map.current);
 
           // Click handler for marker
-          el.addEventListener('click', () => {
+          marker.on('click', () => {
             setSelectedShop(shop);
             onShopSelect?.(shop);
-            marker.togglePopup();
+            marker.openPopup();
           });
 
-          markersRef.current.push({ marker, el, shopId: shop._id });
+          markersRef.current.push({ marker, shopId: shop._id });
         } catch (error) {
           console.warn('Error adding marker for shop:', error);
-        }
-      });
-
-      // Update existing markers' styling when selectedShop changes
-      markersRef.current.forEach((markerObj) => {
-        try {
-          const isSelected = selectedShop?._id === markerObj.shopId;
-          markerObj.el.style.backgroundColor = isSelected ? '#dc2626' : '#ef4444';
-          markerObj.el.style.border = isSelected ? '3px solid #991b1b' : '2px solid white';
-          markerObj.el.style.width = isSelected ? '40px' : '32px';
-          markerObj.el.style.height = isSelected ? '40px' : '32px';
-        } catch (error) {
-          console.warn('Error updating marker style:', error);
         }
       });
     } catch (error) {
@@ -203,22 +166,23 @@ export const ShopMap = ({ shops = [], userLocation, onShopSelect, title = 'Nearb
     if (!map.current || !shops.length || !mapInitializedRef.current) return;
 
     try {
-      const bounds = new mapboxgl.LngLatBounds();
+      const bounds = L.latLngBounds([]);
 
       // Add user location to bounds
       if (userLocation) {
-        bounds.extend([userLocation.longitude, userLocation.latitude]);
+        bounds.extend([userLocation.latitude, userLocation.longitude]);
       }
 
       // Add all shop locations
       shops.forEach((shop) => {
         if (shop.location?.coordinates) {
-          bounds.extend(shop.location.coordinates);
+          const [lon, lat] = shop.location.coordinates;
+          bounds.extend([lat, lon]);
         }
       });
 
       // Only fit bounds if we have locations
-      if (!bounds.isEmpty?.()) {
+      if (bounds.isValid()) {
         map.current.fitBounds(bounds, { padding: 50 });
       }
     } catch (error) {

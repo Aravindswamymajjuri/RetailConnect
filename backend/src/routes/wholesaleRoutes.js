@@ -7,7 +7,8 @@ const {
   getSalesAnalytics,
   updateShopStatus,
   getKhataRecords,
-  getReviews
+  getReviews,
+  migrateOrderInventory
 } = require('../controllers/wholesaleController');
 
 const router = express.Router();
@@ -33,5 +34,8 @@ router.get('/khata', getKhataRecords);
 
 // Reviews
 router.get('/reviews', getReviews);
+
+// Migration endpoint (call once to process old orders)
+router.post('/migrate-inventory', migrateOrderInventory);
 
 module.exports = router;

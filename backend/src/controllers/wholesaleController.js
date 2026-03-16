@@ -111,44 +111,142 @@ exports.updateOrderStatus = async (req, res) => {
     const { status } = req.body;
     const userId = req.user.userId;
 
+    console.log('\n🔵 === UPDATE ORDER STATUS ENDPOINT HIT ===');
+    console.log('📍 orderId:', orderId);
+    console.log('📍 newStatus:', status);
+    console.log('📍 userId:', userId);
+
     // Validate status
     const validStatuses = ['Waiting', 'Preparing', 'Ready for Pickup', 'Completed', 'Cancelled'];
     if (!validStatuses.includes(status)) {
+      console.log('❌ Invalid status');
       return res.status(400).json({ message: 'Invalid status' });
     }
 
     // Get order and verify ownership
     const order = await Order.findById(orderId).populate('wholesalerShop');
     if (!order) {
+      console.log('❌ Order not found');
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    console.log('✅ Order found:', {
+      orderId: order._id,
+      currentStatus: order.status,
+      items: order.items.length,
+      inventoryDeducted: order.inventoryDeducted
+    });
+
     const shop = await Shop.findOne({ _id: order.wholesalerShop._id, owner: userId });
     if (!shop) {
+      console.log('❌ Not authorized');
       return res.status(403).json({ message: 'Not authorized to update this order' });
     }
 
-    // Update status
+    console.log('✅ Shop verified:', shop.name);
+
+    // Deduct inventory when status changes to Preparing, Ready for Pickup, or Completed
+    // Check if inventory NOT already deducted (handle both new orders with flag and old orders without flag)
+    const shouldDeductInventory = 
+      ['Preparing', 'Ready for Pickup', 'Completed'].includes(status) &&
+      (order.inventoryDeducted === undefined || order.inventoryDeducted === false);
+    
+    if (shouldDeductInventory) {
+      console.log('💰 DEDUCTING INVENTORY - Processing items:', order.items.length);
+      console.log('🔍 inventoryDeducted flag status:', order.inventoryDeducted);
+
+      // Increment soldItems for each product in the order
+      for (const item of order.items) {
+        try {
+          const product = await Product.findById(item.product);
+          if (product) {
+            const oldSoldCount = product.soldItems || 0;
+            const oldAvailableStock = product.stockAvailable - oldSoldCount;
+            
+            console.log(`📝 Before update - Product "${product.name}": soldItems=${product.soldItems}, stockAvailable=${product.stockAvailable}`);
+            
+            // Increment sold items
+            product.soldItems = (product.soldItems || 0) + item.quantity;
+            const newAvailableStock = product.stockAvailable - product.soldItems;
+            
+            // Save with explicit error handling
+            const savedProduct = await product.save();
+            console.log(`✅ Product saved successfully`);
+            console.log(`📝 After update - Product "${savedProduct.name}": soldItems=${savedProduct.soldItems}, stockAvailable=${savedProduct.stockAvailable}`);
+            
+            // Verify save by fetching fresh from DB
+            const verifyProduct = await Product.findById(item.product);
+            console.log(`🔍 Verification from DB - "${verifyProduct.name}": soldItems=${verifyProduct.soldItems}, stockAvailable=${verifyProduct.stockAvailable}`);
+
+            console.log(`✅ Items sold for "${product.name}": ${item.quantity} units | Available: ${oldAvailableStock} → ${newAvailableStock} | Total Sold: ${oldSoldCount} → ${product.soldItems}`);
+          } else {
+            console.log(`⚠️ Product not found for item:`, item.product);
+          }
+        } catch (itemError) {
+          console.error(`❌ Error processing item for product ${item.product}:`, itemError.message);
+          console.error('Stack:', itemError.stack);
+        }
+      }
+
+      // Mark inventory as deducted
+      order.inventoryDeducted = true;
+      console.log('✅ Set inventoryDeducted = true');
+    } else if (order.inventoryDeducted === true) {
+      console.log('⏭️ Inventory already deducted for this order, skipping');
+    } else {
+      console.log('⏭️ Status is not a "sell" status, skipping inventory deduction');
+    }
+
+    // Update order status and completion date
     order.status = status;
     if (status === 'Completed') {
       order.completedAt = new Date();
     }
     await order.save();
 
-    // Emit real-time update
-    const { getIO } = require('../services/socket');
-    const io = getIO();
-    io.to(`user:${order.retailer}`).emit('orderStatusUpdated', {
-      orderId: order._id,
+    console.log('✅ Order saved with new status:', status);
+    console.log('📋 Order after save:', {
+      _id: order._id,
       status: order.status,
-      completedAt: order.completedAt
+      inventoryDeducted: order.inventoryDeducted
     });
 
-    logger.success('Order status updated', { orderId, status });
-    res.json({ message: 'Order status updated', order });
+    // Refresh order from database with fresh populate
+    let updatedOrder = await Order.findById(orderId);
+    
+    // Populate data for response
+    updatedOrder = await updatedOrder
+      .populate('retailer', 'name email mobile')
+      .populate('wholesaler', 'name email')
+      .populate('wholesalerShop', 'name address')
+      .populate('items.product', 'name price stockAvailable soldItems category unit');
+
+    console.log('✅ Order populated');
+    
+    // Log populated items to verify soldItems is included
+    console.log('📦 Response items with stock details:', updatedOrder.items.map(i => ({
+      productId: i.product?._id,
+      productName: i.product?.name,
+      quantity: i.quantity,
+      totalStockAvailable: i.product?.stockAvailable,
+      totalSoldItems: i.product?.soldItems,
+      currentAvailableStock: (i.product?.stockAvailable || 0) - (i.product?.soldItems || 0)
+    })));
+
+    console.log('✅ === END OF SUCCESS ===\n');
+
+    res.json({ 
+      message: 'Order status updated successfully', 
+      order: updatedOrder 
+    });
   } catch (error) {
-    logger.error('Error updating order status', { error: error.message });
-    res.status(500).json({ message: 'Error updating order status', error: error.message });
+    console.error('\n❌ === ERROR IN UPDATE ORDER STATUS ===');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      message: 'Error updating order status', 
+      error: error.message 
+    });
   }
 };
 
@@ -361,5 +459,75 @@ exports.getReviews = async (req, res) => {
     logger.error('Error getting reviews', { error: error.message, stack: error.stack });
     console.error('Full error:', error);
     res.status(500).json({ message: 'Error getting reviews', error: error.message });
+  }
+};
+
+/**
+ * Migration endpoint - Process old orders and update product sold items
+ * Call this once to migrate all old completed orders
+ */
+exports.migrateOrderInventory = async (req, res) => {
+  try {
+    console.log('\n🚀 === STARTING INVENTORY MIGRATION ===');
+    
+    // Find all orders with sale statuses but inventoryDeducted not marked
+    const oldOrders = await Order.find({
+      status: { $in: ['Preparing', 'Ready for Pickup', 'Completed'] },
+      $or: [
+        { inventoryDeducted: { $exists: false } },
+        { inventoryDeducted: false }
+      ]
+    }).populate('items.product');
+
+    console.log(`📊 Found ${oldOrders.length} orders to process`);
+
+    let processedCount = 0;
+    let errorCount = 0;
+
+    for (const order of oldOrders) {
+      try {
+        console.log(`\n📋 Processing order ${order._id}...`);
+        
+        // Process each item in the order
+        for (const item of order.items) {
+          if (item.product) {
+            const product = await Product.findById(item.product._id);
+            if (product) {
+              const oldSoldCount = product.soldItems || 0;
+              product.soldItems = (product.soldItems || 0) + item.quantity;
+              await product.save();
+              
+              console.log(`  ✅ ${product.name}: sold ${item.quantity} → total sold: ${product.soldItems}`);
+            }
+          }
+        }
+        
+        // Mark order as processed
+        order.inventoryDeducted = true;
+        await order.save();
+        
+        processedCount++;
+        console.log(`✅ Order ${order._id} migration complete`);
+      } catch (orderError) {
+        errorCount++;
+        console.error(`❌ Error processing order ${order._id}:`, orderError.message);
+      }
+    }
+
+    console.log('\n✅ === MIGRATION COMPLETE ===');
+    console.log(`📊 Processed: ${processedCount}, Errors: ${errorCount}`);
+
+    res.json({
+      message: 'Migration completed',
+      totalOrders: oldOrders.length,
+      processedCount,
+      errorCount
+    });
+  } catch (error) {
+    console.error('❌ Migration error:', error.message);
+    res.status(500).json({
+      message: 'Migration error',
+      error: error.message
+    });
   }
 };
