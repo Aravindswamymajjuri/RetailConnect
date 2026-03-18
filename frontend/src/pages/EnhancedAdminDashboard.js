@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
@@ -17,7 +17,7 @@ export const EnhancedAdminDashboard = () => {
   const [filterStatus, setFilterStatus] = useState('all');
 
   // Fetch all retailers
-  const fetchRetailers = async () => {
+  const fetchRetailers = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(
@@ -30,10 +30,10 @@ export const EnhancedAdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   // Fetch all wholesalers
-  const fetchWholesalers = async () => {
+  const fetchWholesalers = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(
@@ -46,10 +46,10 @@ export const EnhancedAdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   // Fetch reviews
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     try {
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/admin/reviews`,
@@ -59,10 +59,10 @@ export const EnhancedAdminDashboard = () => {
     } catch (error) {
       console.error('Error fetching reviews:', error);
     }
-  };
+  }, [token]);
 
   // Fetch complaints
-  const fetchComplaints = async () => {
+  const fetchComplaints = useCallback(async () => {
     try {
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/admin/complaints`,
@@ -72,10 +72,10 @@ export const EnhancedAdminDashboard = () => {
     } catch (error) {
       console.error('Error fetching complaints:', error);
     }
-  };
+  }, [token]);
 
   // Fetch platform stats
-  const fetchPlatformStats = async () => {
+  const fetchPlatformStats = useCallback(async () => {
     try {
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/admin/stats`,
@@ -85,7 +85,7 @@ export const EnhancedAdminDashboard = () => {
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
-  };
+  }, [token]);
 
   // Approve shop
   const approveShop = async (userId) => {
@@ -165,7 +165,6 @@ export const EnhancedAdminDashboard = () => {
   };
 
   // Initial fetch
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchPlatformStats();
     fetchRetailers();
@@ -184,7 +183,7 @@ export const EnhancedAdminDashboard = () => {
         socket.off('analyticsUpdated');
       };
     }
-  }, [socket, token]);
+  }, [socket, fetchComplaints, fetchPlatformStats, fetchRetailers, fetchWholesalers, fetchReviews]);
 
   // Filter and search
   const filtered = (activeTab === 'retailers' ? retailers : wholesalers)

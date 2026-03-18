@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { API_BASE_URL } from '../services/api';
 import axios from 'axios';
@@ -40,7 +40,7 @@ export const WholesaleDashboard = () => {
 
   // Fetch functions
   // Fetch products for inventory
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       const response = await axios.get(`${ API_BASE_URL }/api/products/shop/${user.shopId}`, {
         headers: { Authorization: `Bearer ${ token }` }
@@ -49,9 +49,9 @@ export const WholesaleDashboard = () => {
     } catch (error) {
       console.error('Error fetching products:', error);
     }
-  };
+  }, [token, user.shopId]);
 
-  const fetchOrderQueue = async () => {
+  const fetchOrderQueue = useCallback(async () => {
     try {
       const response = await axios.get(`${ API_BASE_URL }/api/wholesale/order-queue`, {
         headers: { Authorization: `Bearer ${ token }` }
@@ -60,9 +60,9 @@ export const WholesaleDashboard = () => {
     } catch (error) {
       console.error('Error fetching order queue:', error);
     }
-  };
+  }, [token]);
 
-  const fetchStockAlerts = async () => {
+  const fetchStockAlerts = useCallback(async () => {
     try {
       const response = await axios.get(`${ API_BASE_URL }/api/wholesale/stock-alerts`, {
         headers: { Authorization: `Bearer ${ token }` }
@@ -71,9 +71,9 @@ export const WholesaleDashboard = () => {
     } catch (error) {
       console.error('Error fetching stock alerts:', error);
     }
-  };
+  }, [token]);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       const response = await axios.get(`${ API_BASE_URL }/api/wholesale/analytics`, {
         headers: { Authorization: `Bearer ${ token }` }
@@ -82,9 +82,9 @@ export const WholesaleDashboard = () => {
     } catch (error) {
       console.error('Error fetching analytics:', error);
     }
-  };
+  }, [token]);
 
-  const fetchKhata = async () => {
+  const fetchKhata = useCallback(async () => {
     try {
       const response = await axios.get(`${ API_BASE_URL }/api/wholesale/khata`, {
         headers: { Authorization: `Bearer ${ token }` }
@@ -93,9 +93,9 @@ export const WholesaleDashboard = () => {
     } catch (error) {
       console.error('Error fetching khata records:', error);
     }
-  };
+  }, [token]);
 
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     try {
       const response = await axios.get(`${ API_BASE_URL }/api/wholesale/reviews`, {
         headers: { Authorization: `Bearer ${ token }` }
@@ -104,10 +104,10 @@ export const WholesaleDashboard = () => {
     } catch (error) {
       console.error('Error fetching reviews:', error);
     }
-  };
+  }, [token]);
 
   // Messaging functions
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     try {
       const response = await axios.get(`${ API_BASE_URL }/api/messages/conversations/list`, {
         headers: { Authorization: `Bearer ${ token }` }
@@ -116,7 +116,8 @@ export const WholesaleDashboard = () => {
     } catch (error) {
       console.error('Error fetching conversations:', error);
     }
-  };
+  }, [token]);
+
 
   const fetchMessages = async (contactId) => {
     try {
@@ -259,7 +260,6 @@ export const WholesaleDashboard = () => {
   };
 
   // Load data based on active tab
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     switch (activeTab) {
       case 'queue':
@@ -286,10 +286,9 @@ export const WholesaleDashboard = () => {
       default:
         break;
     }
-  }, [activeTab]);
+  }, [activeTab, fetchOrderQueue, fetchProducts, fetchStockAlerts, fetchAnalytics, fetchKhata, fetchReviews, fetchConversations]);
 
   // Real-time socket listeners
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!socket) return;
 
@@ -380,7 +379,7 @@ export const WholesaleDashboard = () => {
       socket.off('stockAlert');
       socket.off('messageReceived');
     };
-  }, [socket, activeTab, selectedContact]);
+  }, [socket, activeTab, selectedContact, fetchConversations, fetchOrderQueue, fetchProducts, fetchReviews, fetchStockAlerts]);
 
   // Handle order status update
   const handleUpdateOrderStatus = async (orderId, newStatus) => {

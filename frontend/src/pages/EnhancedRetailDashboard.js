@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { ShopMap } from '../components/ShopMap';
@@ -69,8 +69,98 @@ export const RetailDashboard2 = () => {
   const [complaintCategory, setComplaintCategory] = useState('product');
   const [showComplaintForm, setShowComplaintForm] = useState(false);
 
+  // Fetch nearby shops within 5km radius
+  const fetchNearbyShops = useCallback(async (lat, lon) => {
+    try {
+      setLoading(true);
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/shops/nearby-wholesale`,
+        {
+          latitude: lat,
+          longitude: lon,
+          maxDistance: 5000 // 5km radius
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNearbyShops(response.data.shops || []);
+    } catch (error) {
+      console.error('Error fetching nearby shops:', error);
+      alert('Unable to load nearby shops');
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  // Fetch retailer orders
+  const fetchRetailerOrders = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/orders/my-orders`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setOrders(response.data);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    }
+  }, [token]);
+
+  // Fetch reviews for selected shop
+  const fetchShopReviews = useCallback(async (shopId) => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/reviews/shop/${shopId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setReviews(response.data);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    }
+  }, [token]);
+
+  // Fetch complaints
+  const fetchComplaints = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/complaints/my-complaints`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setComplaints(response.data);
+    } catch (error) {
+      console.error('Error fetching complaints:', error);
+    }
+  }, [token]);
+
+  // Fetch analytics data
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/analytics/retail`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setAnalyticsData(response.data);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    }
+  }, [token]);
+
+  // Fetch shop-specific analytics
+  const fetchShopAnalytics = useCallback(async (shopId) => {
+    try {
+      setLoading(true);
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/analytics/shop/${shopId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setShopAnalyticsData(response.data);
+    } catch (error) {
+      console.error('Error fetching shop analytics:', error);
+      alert('Failed to load shop analytics');
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
   // Get user location on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -94,37 +184,14 @@ export const RetailDashboard2 = () => {
         }
       );
     }
-  }, [token]);
+  }, [fetchNearbyShops, fetchRetailerOrders, fetchComplaints]);
 
   // Auto-fetch reviews when reviewShopId changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (reviewShopId && reviewShopId.trim()) {
       fetchShopReviews(reviewShopId);
     }
-  }, [reviewShopId]);
-
-  // Fetch nearby shops within 5km radius
-  const fetchNearbyShops = async (lat, lon) => {
-    try {
-      setLoading(true);
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/shops/nearby-wholesale`,
-        {
-          latitude: lat,
-          longitude: lon,
-          maxDistance: 5000 // 5km radius
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setNearbyShops(response.data.shops || []);
-    } catch (error) {
-      console.error('Error fetching nearby shops:', error);
-      alert('Unable to load nearby shops');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [reviewShopId, fetchShopReviews]);
 
   // Get current location and fetch shops
   const handleGetCurrentLocation = () => {
@@ -346,32 +413,6 @@ export const RetailDashboard2 = () => {
     }
   };
 
-  // Fetch retailer orders
-  const fetchRetailerOrders = async () => {
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/orders/my-orders`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setOrders(response.data);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    }
-  };
-
-  // Fetch reviews for selected shop
-  const fetchShopReviews = async (shopId) => {
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/reviews/shop/${shopId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setReviews(response.data);
-    } catch (error) {
-      console.error('Error fetching reviews:', error);
-    }
-  };
-
   // Submit review
   const submitReview = async () => {
     if (!reviewShopId || !userReview.trim()) {
@@ -399,36 +440,6 @@ export const RetailDashboard2 = () => {
       alert('✅ Review submitted successfully!');
     } catch (error) {
       alert('Failed to submit review: ' + error.response?.data?.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch analytics data
-  const fetchAnalytics = async () => {
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/analytics/retail`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setAnalyticsData(response.data);
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-    }
-  };
-
-  // Fetch shop-specific analytics
-  const fetchShopAnalytics = async (shopId) => {
-    try {
-      setLoading(true);
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/analytics/shop/${shopId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setShopAnalyticsData(response.data);
-    } catch (error) {
-      console.error('Error fetching shop analytics:', error);
-      alert('Failed to load shop analytics');
     } finally {
       setLoading(false);
     }
@@ -487,19 +498,6 @@ export const RetailDashboard2 = () => {
     }
   };
 
-  // Fetch complaints
-  const fetchComplaints = async () => {
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/complaints/my-complaints`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setComplaints(response.data);
-    } catch (error) {
-      console.error('Error fetching complaints:', error);
-    }
-  };
-
   // Submit complaint
   const submitComplaint = async () => {
     if (!complaintText.trim()) {
@@ -532,7 +530,6 @@ export const RetailDashboard2 = () => {
   };
 
   // Listen for real-time updates
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!socket) return;
 
@@ -665,7 +662,7 @@ export const RetailDashboard2 = () => {
       socket.off('messageReceived');
       socket.off('complaintStatusUpdated');
     };
-  }, [socket, user, selectedShop, selectedContact]);
+  }, [socket, user, selectedShop, selectedContact, fetchAnalytics, fetchShopAnalytics, selectedShopForAnalytics]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
