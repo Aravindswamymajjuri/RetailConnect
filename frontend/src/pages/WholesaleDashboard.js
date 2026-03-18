@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { API_BASE_URL } from '../services/api';
-import { formatCurrency } from '../utils/helpers';
 import axios from 'axios';
 
 export const WholesaleDashboard = () => {
@@ -18,7 +17,6 @@ export const WholesaleDashboard = () => {
   const [shopStatus, setShopStatus] = useState({ isOpen: true });
   const [loading, setLoading] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
   const [editFormData, setEditFormData] = useState({});
 
@@ -261,6 +259,7 @@ export const WholesaleDashboard = () => {
   };
 
   // Load data based on active tab
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     switch (activeTab) {
       case 'queue':
@@ -290,6 +289,7 @@ export const WholesaleDashboard = () => {
   }, [activeTab]);
 
   // Real-time socket listeners
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!socket) return;
 

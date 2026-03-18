@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import io from 'socket.io-client';
 
@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, fetchCurrentUser]);
 
   useEffect(() => {
     // Initialize Socket.io connection when user logs in
@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user, token]);
 
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = useCallback(async () => {
     try {
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/auth/me`,
@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }) => {
       setToken(null);
       setLoading(false);
     }
-  };
+  }, [token]);
 
   const login = async (email, password) => {
     try {

@@ -5,7 +5,7 @@ import { ShopMap } from '../components/ShopMap';
 import { Cart } from '../components/Cart';
 import { PaymentPage } from '../components/PaymentPage';
 import { QueueTracker } from '../components/QueueTracker';
-import { productServices, shopServices, orderServices } from '../services/api';
+import { productServices } from '../services/api';
 import axios from 'axios';
 
 export const RetailDashboard2 = () => {
@@ -61,7 +61,6 @@ export const RetailDashboard2 = () => {
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState('');
   const [selectedContact, setSelectedContact] = useState(null);
-  const [showMessageForm, setShowMessageForm] = useState(false);
 
   // Complaints state
   const [complaints, setComplaints] = useState([]);
@@ -70,6 +69,7 @@ export const RetailDashboard2 = () => {
   const [showComplaintForm, setShowComplaintForm] = useState(false);
 
   // Get user location on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -96,6 +96,7 @@ export const RetailDashboard2 = () => {
   }, [token]);
 
   // Auto-fetch reviews when reviewShopId changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (reviewShopId && reviewShopId.trim()) {
       fetchShopReviews(reviewShopId);
@@ -530,6 +531,7 @@ export const RetailDashboard2 = () => {
   };
 
   // Listen for real-time updates
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!socket) return;
 

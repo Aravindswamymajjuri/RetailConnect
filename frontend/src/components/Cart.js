@@ -1,9 +1,6 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
-import { productServices } from '../services/api';
+import React, { useState } from 'react';
 
 export const Cart = ({ wholesalerId, items = [], onCheckout, isLoading = false }) => {
-  const { token } = useContext(AuthContext);
   const [cart, setCart] = useState(items);
   const [loading, setLoading] = useState(isLoading);
 

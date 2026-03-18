@@ -47,11 +47,10 @@ export const RegisterPage = () => {
         location
       };
 
-      let response;
       if (userType === 'retail') {
-        response = await registerRetail(data);
+        await registerRetail(data);
       } else {
-        response = await registerWholesale(data);
+        await registerWholesale(data);
       }
 
       if (userType === 'retail') {

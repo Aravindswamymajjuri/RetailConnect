@@ -13,7 +13,6 @@ export const EnhancedAdminDashboard = () => {
   const [complaints, setComplaints] = useState([]);
   const [platformStats, setPlatformStats] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -166,6 +165,7 @@ export const EnhancedAdminDashboard = () => {
   };
 
   // Initial fetch
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchPlatformStats();
     fetchRetailers();

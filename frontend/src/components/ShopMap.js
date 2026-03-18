@@ -82,7 +82,7 @@ export const ShopMap = ({ shops = [], userLocation, onShopSelect, title = 'Nearb
       console.error('Error initializing map:', error);
       mapInitializedRef.current = false;
     }
-  }, [userLocation?.latitude, userLocation?.longitude]);
+  }, [userLocation]);
 
   // Update markers when shops change
   useEffect(() => {
