@@ -35,10 +35,10 @@ logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://retailconnect.vercel.app', 'https://retailconnect.onrender.com']
-    : 'http://localhost:3000',
-  credentials: true
+  origin: '*',
+  credentials: false,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
