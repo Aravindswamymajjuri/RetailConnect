@@ -35,7 +35,9 @@ logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://retailconnect.vercel.app', 'https://retailconnect.onrender.com']
+    : 'http://localhost:3000',
   credentials: true
 }));
 app.use(express.json());
