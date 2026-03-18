@@ -42,6 +42,7 @@ export const RetailDashboard2 = () => {
   const [reviewShopId, setReviewShopId] = useState('');
 
   // Analytics state
+  // eslint-disable-next-line no-unused-vars
   const [analyticsData, setAnalyticsData] = useState({
     totalOrders: 0,
     totalSpending: 0,

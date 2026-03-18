@@ -10,6 +10,24 @@ export const AuthProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
+  const fetchCurrentUser = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/auth/me`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      setUser(response.data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      localStorage.removeItem('token');
+      setToken(null);
+      setLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     // Check if user is already logged in
     if (token) {
@@ -19,6 +37,8 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token, fetchCurrentUser]);
 
+  // Initialize Socket.io connection
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Initialize Socket.io connection when user logs in
     if (user && token) {
@@ -41,24 +61,6 @@ export const AuthProvider = ({ children }) => {
       };
     }
   }, [user, token]);
-
-  const fetchCurrentUser = useCallback(async () => {
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/auth/me`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      setUser(response.data);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching user:', error);
-      localStorage.removeItem('token');
-      setToken(null);
-      setLoading(false);
-    }
-  }, [token]);
 
   const login = async (email, password) => {
     try {
