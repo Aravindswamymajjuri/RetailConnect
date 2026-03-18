@@ -11,6 +11,9 @@
       }
     }
   ],
+  "env": {
+    "REACT_APP_API_URL": "https://retailconnect.onrender.com"
+  },
   "routes": [
     { "handle": "filesystem" },
     {
