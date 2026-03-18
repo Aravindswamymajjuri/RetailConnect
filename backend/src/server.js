@@ -1,4 +1,8 @@
-require('dotenv').config();
+try {
+  require('dotenv').config();
+} catch (error) {
+  console.warn('dotenv not available; skipping .env load');
+}
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
